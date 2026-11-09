@@ -1,6 +1,6 @@
 # F1 Race Strategy & Pit-Window Risk Simulator
 
-![tests](../../actions/workflows/tests.yml/badge.svg) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+![tests](../../actions/workflows/tests.yml/badge.svg) ![python](https://img.shields.io/badge/python-3.10%2B-blue) !
 
 A Monte Carlo simulator that ranks Formula 1 race strategies (which tyres, when to pit) by **expected race time and risk**. It accounts for tyre degradation, fuel burn, Safety Cars, Virtual Safety Cars, pit-stop variance and botched stops. It fits its inputs from real timing data with [FastF1](https://docs.fastf1.dev).
 
