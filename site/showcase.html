@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VR-25 Showcase · Volta Racing</title>
+<meta name="description" content="VR-25 Strategy Lab: a Monte Carlo F1 race strategy simulator with live tyre, pit-stop and Safety Car modelling.">
+<meta name="theme-color" content="#0B0B0C">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="is-loading">
+
+<!-- Reusable original car drawing (top view, nose up). Colours come from CSS variables. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="car" viewBox="0 0 120 300">
+      <rect x="8" y="6" width="104" height="10" rx="3" fill="var(--wing, #111)"/>
+      <rect x="14" y="17" width="92" height="5" rx="2" fill="var(--accent, #DC0000)"/>
+      <path d="M54 18 L66 18 L70 96 L50 96 Z" fill="var(--body, #DC0000)"/>
+      <rect x="1" y="44" width="20" height="40" rx="5" fill="var(--tyre, #1a1a1a)"/>
+      <rect x="99" y="44" width="20" height="40" rx="5" fill="var(--tyre, #1a1a1a)"/>
+      <rect x="1" y="44" width="20" height="5" rx="2" fill="var(--band, #DC0000)"/>
+      <rect x="99" y="44" width="20" height="5" rx="2" fill="var(--band, #DC0000)"/>
+      <path d="M21 62 L50 70 M70 70 L99 62" stroke="var(--wing, #111)" stroke-width="3"/>
+      <path d="M44 96 C26 116 22 150 26 200 C28 222 40 240 48 256 L72 256 C80 240 92 222 94 200 C98 150 94 116 76 96 Z" fill="var(--body, #DC0000)"/>
+      <path d="M30 150 C32 130 38 118 46 110 L46 214 C38 206 32 190 30 172 Z" fill="var(--stripe, #0B0B0C)" opacity=".85"/>
+      <path d="M90 150 C88 130 82 118 74 110 L74 214 C82 206 88 190 90 172 Z" fill="var(--stripe, #0B0B0C)" opacity=".85"/>
+      <ellipse cx="60" cy="128" rx="10" ry="18" fill="#0B0B0C"/>
+      <path d="M48 114 Q60 100 72 114" stroke="var(--halo, #F4F1EA)" stroke-width="3" fill="none"/>
+      <rect x="55" y="148" width="10" height="70" rx="5" fill="var(--accent, #FFF200)" opacity=".9"/>
+      <text x="60" y="242" text-anchor="middle" font-family="Anton, Impact, sans-serif" font-size="16" fill="var(--num, #F4F1EA)">05</text>
+      <rect x="0" y="206" width="24" height="50" rx="6" fill="var(--tyre, #1a1a1a)"/>
+      <rect x="96" y="206" width="24" height="50" rx="6" fill="var(--tyre, #1a1a1a)"/>
+      <rect x="0" y="206" width="24" height="5" rx="2" fill="var(--band, #DC0000)"/>
+      <rect x="96" y="206" width="24" height="5" rx="2" fill="var(--band, #DC0000)"/>
+      <rect x="16" y="268" width="88" height="20" rx="3" fill="var(--wing, #111)"/>
+      <rect x="16" y="268" width="88" height="5" rx="2" fill="var(--accent, #DC0000)"/>
+    </symbol>
+    <symbol id="flags" viewBox="0 0 24 24">
+      <path d="M4 3v18M4 4h8l-1 3 1 3H4M20 3v18M20 4h-8l1 3-1 3h8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M6 4h2v2H6zM10 6h2v2h-2zM6 8h2v2H6zM16 4h2v2h-2zM12 6h2v2h-2zM16 8h2v2h-2z" fill="currentColor"/>
+    </symbol>
+    <symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </defs>
+</svg>
+
+<!-- 1. Loader -->
+<div class="loader" id="loader" role="dialog" aria-label="Start">
+  <div class="loader__inner">
+    <p class="label">Volta Racing · Strategy Lab · 2025 Season</p>
+    <div class="loader__car"><svg viewBox="0 0 120 300"><use href="#car"/></svg></div>
+    <button class="pill pill--red magnetic" id="loadBtn">Load VR-25 <svg class="ico"><use href="#arrow"/></svg></button>
+    <p class="loader__hint">Monte Carlo race strategy · real F1 timing data</p>
+  </div>
+</div>
+
+<div class="rotate" aria-hidden="true"><svg viewBox="0 0 120 300"><use href="#car"/></svg><p>Please rotate your device</p></div>
+
+<div class="spot" aria-hidden="true"></div>
+<div class="cursor" aria-hidden="true"><span class="cursor__dot"></span><span class="cursor__ring"></span></div>
+
+<!-- Top bar -->
+<header class="bar">
+  <a href="#top" class="bar__logo" aria-label="Home"><span class="wordmark">Volta</span><span class="stamp stamp--sm">VR-25</span></a>
+  <nav class="bar__right">
+    <a href="index.html" class="bar__link">Dashboard</a>
+    <button class="pill pill--ghost menu-btn magnetic" id="menuBtn" aria-expanded="false" aria-controls="menu">Menu</button>
+  </nav>
+</header>
+
+<!-- Overlay menu -->
+<div class="menu" id="menu" aria-hidden="true">
+  <div class="menu__collage" id="collage"></div>
+  <nav class="menu__links">
+    <a href="#top">Home</a>
+    <a href="#lab">On Track</a>
+    <a href="#model">Off Track</a>
+    <a href="#liveries">Liveries</a>
+    <a href="#races">Race files</a>
+  </nav>
+  <div class="menu__foot">
+    <p class="label">Volta Racing · Strategy since 2025</p>
+    <p class="label">A fictional team for an independent data project</p>
+  </div>
+</div>
+
+<main id="top">
+
+  <!-- 2. Hero: the vertical drive -->
+  <section class="hero" id="hero">
+    <div class="hero__stage">
+      <canvas class="hero__canvas" id="heroCanvas" aria-label="3D VR-25 driving down the track"></canvas>
+      <div class="track" id="track">
+        <div class="track__kerb track__kerb--l"></div>
+        <div class="track__lines" id="trackLines"></div>
+        <div class="track__kerb track__kerb--r"></div>
+        <div class="car-wrap" id="heroCar"><svg viewBox="0 0 120 300"><use href="#car"/></svg></div>
+        <div class="boxbox" id="boxbox">BOX, BOX</div>
+      </div>
+
+      <div class="hero__copy">
+        <p class="label">Volta Racing · Strategy Lab · 2025 Season</p>
+        <h1 class="display"><span>VR-25</span></h1>
+        <p class="hero__sub">2025 Volta Racing Formula Car · Strategy Lab</p>
+        <p class="hero__line"><b>Redefining</b> limits, <b>fighting</b> for wins, <b>defining</b> a legacy.</p>
+      </div>
+
+      <div class="hero__hud">
+        <button class="chip chip--race" id="raceChip" title="Switch race file">
+          <span class="chip__dot"></span><span>Next race</span><b id="raceName">-</b>
+        </button>
+        <div class="hud">
+          <div><span class="label">Lap</span><b id="hudLap">1</b><i>/<span id="hudTotal">57</span></i></div>
+          <div><span class="label">Tyre</span><b id="hudTyre">S</b></div>
+          <div><span class="label">Plan</span><b id="hudPlan">-</b></div>
+        </div>
+        <div class="stintbar" id="heroStints" aria-label="Best strategy timeline"></div>
+        <button class="chip chip--lock" id="lockBtn" aria-pressed="false">Tap to lock</button>
+      </div>
+      <p class="hero__scroll label">Scroll to drive</p>
+    </div>
+  </section>
+
+  <!-- 3. Message from the team -->
+  <section class="message reveal">
+    <p class="label">Message from the pit wall</p>
+    <p class="message__text">Races are won on the <b>pit wall</b> as much as on the tarmac. Every lap the tyres fade, the fuel burns off and the Safety Car waits for its moment. The VR-25 Strategy Lab runs <b id="msgRuns">thousands</b> of races before the lights go out, so when the call comes, it is the <b>right one</b>.</p>
+    <div class="signature"><span class="script">Volta</span><span class="stamp">VR-25 / Chassis 05</span></div>
+  </section>
+
+  <!-- 4. Drifting strip -->
+  <section class="strip" id="strip">
+    <div class="strip__row" id="stripRow"></div>
+  </section>
+
+  <!-- 5. Portals -->
+  <section class="portals">
+    <a href="#lab" class="portal reveal">
+      <h2 class="display display--stack"><span>On</span><span>Track</span></h2>
+      <p>Strategy Lab. Rank every legal plan, live, against thousands of simulated races.</p>
+      <span class="portal__arrow"><svg class="ico"><use href="#arrow"/></svg></span>
+    </a>
+    <a href="#model" class="portal portal--alt reveal">
+      <h2 class="display display--stack"><span>Off</span><span>Track</span></h2>
+      <p>The model. Undercuts, Safety Cars and the maths behind every call.</p>
+      <span class="portal__arrow"><svg class="ico"><use href="#arrow"/></svg></span>
+    </a>
+  </section>
+
+  <!-- 6. Strategy Lab (live) -->
+  <section class="lab" id="lab">
+    <header class="sec-head reveal">
+      <p class="label">Pit-wall maths · Volta Racing · 2025 Season</p>
+      <h2 class="display display--stack"><span>Strategy</span><span>Lab</span></h2>
+      <p class="sec-head__lead">Move a slider and the lab re-runs the race <b>live in your browser</b>: about 14,500 plans screened, the best simulated on the same random races.</p>
+    </header>
+
+    <div class="lab__grid">
+      <aside class="controls reveal" aria-label="Race inputs">
+        <label class="ctrl"><span>Race file</span><select id="raceSelect"></select></label>
+        <label class="ctrl"><span>Safety Car chance <output id="oSc"></output></span><input type="range" id="sSc" min="0" max="0.95" step="0.05"></label>
+        <label class="ctrl"><span>Pit-stop loss <output id="oPit"></output></span><input type="range" id="sPit" min="14" max="34" step="0.5"></label>
+        <label class="ctrl"><span>Tyre wear <output id="oDeg"></output></span><input type="range" id="sDeg" min="0.5" max="1.6" step="0.05"></label>
+        <label class="ctrl"><span>Fuel effect <output id="oFuel"></output></span><input type="range" id="sFuel" min="0" max="0.1" step="0.005"></label>
+        <label class="ctrl"><span>Simulated races <output id="oRuns"></output></span><input type="range" id="sRuns" min="500" max="4000" step="250"></label>
+        <button class="pill pill--ghost magnetic" id="resetBtn">Reset to race file</button>
+        <p class="controls__note" id="labStatus" aria-live="polite"></p>
+      </aside>
+
+      <div class="lab__out">
+        <article class="call reveal" id="callCard">
+          <p class="label">The call</p>
+          <h3 class="call__plan" id="callPlan">-</h3>
+          <div class="call__stats">
+            <div><b id="callGap">-</b><span>ahead of the next tyre plan</span></div>
+            <div><b id="callP">-</b><span>of races it was the fastest plan</span></div>
+            <div><b id="callSc">-</b><span>of races had a Safety Car</span></div>
+          </div>
+        </article>
+
+        <article class="panel reveal">
+          <header class="panel__head"><h3>Best plan per tyre sequence</h3><p class="label">bar = stints · S soft · M medium · H hard</p></header>
+          <div class="plans" id="plans"></div>
+        </article>
+
+        <article class="panel reveal">
+          <header class="panel__head"><h3>1-stop pit window</h3><p class="label">time lost vs best 1-stop, by pit lap</p></header>
+          <div class="chart" id="pitChart"></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. Off track: the model -->
+  <section class="model" id="model">
+    <header class="sec-head reveal">
+      <p class="label">Off track · how the call is made</p>
+      <h2 class="display display--stack"><span>The</span><span>Undercut</span></h2>
+      <p class="sec-head__lead">You are <b>behind</b>. You pit first. Fresh tyres against old ones: will you come out <b>ahead</b>?</p>
+    </header>
+    <div class="model__grid">
+      <div class="panel reveal">
+        <div class="uc-controls">
+          <label class="ctrl"><span>Tyres now</span><select id="ucOld"></select></label>
+          <label class="ctrl"><span>Fit</span><select id="ucNew"></select></label>
+          <label class="ctrl"><span>Tyre age <output id="oAge"></output></span><input type="range" id="sAge" min="5" max="35" step="1" value="20"></label>
+        </div>
+        <div class="heat" id="heat"></div>
+        <p class="label heat__axis">gap to car ahead (s) ↓ · laps they stay out →</p>
+      </div>
+      <ol class="steps reveal">
+        <li><b>Fit</b><span>Tyre wear per compound from real FastF1 laps, with driver effects removed and fuel burn corrected.</span></li>
+        <li><b>Screen</b><span>Every legal 1- and 2-stop plan through a fast deterministic race model.</span></li>
+        <li><b>Simulate</b><span>The shortlist across thousands of races with Safety Cars, VSCs, slow stops and lap noise.</span></li>
+        <li><b>React</b><span>If a Safety Car appears near a planned stop, box under it for roughly half the time loss.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 8. Liveries Hall of Fame -->
+  <section class="liveries" id="liveries">
+    <header class="sec-head reveal">
+      <p class="label">Volta Racing · Strategy Lab · 2025 Season</p>
+      <h2 class="display display--stack"><span>Liveries</span><span>Hall of Fame</span></h2>
+    </header>
+    <div class="showroom reveal" id="showroom">
+      <canvas id="showroomCanvas" aria-label="3D showroom: hover a livery card to repaint the car, move your mouse to orbit"></canvas>
+      <div class="showroom__meta"><p class="label">Now showing</p><h3 id="showroomName">Season</h3><p class="label" id="showroomYear">2025</p></div>
+      <p class="label showroom__hint">Hover a livery to repaint · move the mouse to orbit</p>
+      <span class="stamp showroom__stamp">VR-25 / Chassis 05</span>
+    </div>
+    <div class="liv-grid" id="livGrid"></div>
+  </section>
+
+  <!-- 9. Built with (marquee) -->
+  <section class="partners">
+    <p class="label">Built with</p>
+    <div class="marquee"><div class="marquee__track" id="marquee"></div></div>
+    <a class="pill pill--ghost magnetic" href="../README.md">View the code <svg class="ico"><use href="#arrow"/></svg></a>
+  </section>
+
+  <!-- 10. Pit wall mosaic -->
+  <section class="mosaic-sec" id="races">
+    <header class="sec-head reveal">
+      <p class="label">Live from the model</p>
+      <h2 class="display display--stack"><span>What's up</span><span>on the pit wall</span></h2>
+    </header>
+    <div class="mosaic" id="mosaic"></div>
+  </section>
+</main>
+
+<!-- 11. Footer -->
+<footer class="foot">
+  <div class="foot__blobs" aria-hidden="true"><span></span><span></span><span></span></div>
+  <h2 class="foot__tag display">Always bringing the <em>fight.</em></h2>
+  <div class="turntable" id="turntable" aria-label="Drag to rotate the VR-25" role="img">
+    <canvas class="turntable__canvas" id="orbitCanvas"></canvas>
+    <div class="turntable__plate"><svg viewBox="0 0 120 300" class="turntable__car"><use href="#car"/></svg></div>
+    <p class="label">Drag to rotate</p>
+  </div>
+  <div class="foot__row" id="footRow"></div>
+  <div class="foot__run">
+    <p class="label">Run it yourself</p>
+    <code>python -m strategy_sim.cli fit --year 2024 --event Bahrain --out params/bahrain_2024.json</code>
+    <code>python scripts/export_site_data.py</code>
+  </div>
+  <div class="foot__legal">
+    <span>Independent student project. Volta Racing and the VR-25 are fictional. Not affiliated with Formula 1, the FIA or any team.</span>
+    <span>Timing data via FastF1 and Jolpica-F1.</span>
+  </div>
+</footer>
+
+<script src="data/results.js"></script>
+<script src="vendor/three.min.js"></script>
+<script src="three-scene.js"></script>
+<script src="model.js"></script>
+<script src="main.js"></script>
+</body>
+</html>

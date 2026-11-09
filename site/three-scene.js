@@ -340,4 +340,88 @@
       },
     });
   };
+
+  /* ---------------- 4. HUD wireframe car (dashboard) ---------------- */
+  VR3D.mountWireframe = function (canvas, opts = {}) {
+    const renderer = makeRenderer(canvas, { alpha: true, exposure: 1 });
+    renderer.toneMapping = THREE.NoToneMapping;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
+    const red = new THREE.Color(opts.color || "#ff2a2a");
+    const lineMat = new THREE.LineBasicMaterial({ color: red, transparent: true, opacity: 0.95 });
+    const glowMat = new THREE.LineBasicMaterial({ color: red, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false });
+    const bandMat = new THREE.LineBasicMaterial({ color: new THREE.Color("#DC0000") });
+    const fill = new THREE.MeshBasicMaterial({ color: 0x170202, transparent: true, opacity: 0.72 });
+
+    const car = VR3D.createCar();
+    const swap = [];
+    car.group.traverse(o => { if (o.isMesh) swap.push(o); });
+    swap.forEach(m => {
+      if (m.material.map) { m.visible = false; return; }          // race-number decal
+      const isBand = m.material === car.mats.band;
+      const edges = new THREE.EdgesGeometry(m.geometry, isBand ? 1 : 22);
+      m.add(new THREE.LineSegments(edges, isBand ? bandMat : lineMat));
+      const g = new THREE.LineSegments(edges, glowMat); g.scale.setScalar(1.012); m.add(g);
+      m.material = fill; m.castShadow = false;
+    });
+    scene.add(car.group);
+
+    // Floor: grid, rings and a scanning pulse
+    const grid = new THREE.GridHelper(24, 48, 0x6a0000, 0x2a0505); grid.material.transparent = true; grid.material.opacity = 0.55; scene.add(grid);
+    const ringMat = new THREE.LineBasicMaterial({ color: 0xDC0000, transparent: true, opacity: 0.6 });
+    const circle = r => { const pts = []; for (let i = 0; i <= 128; i++) { const a = i / 128 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * r, 0.01, Math.sin(a) * r)); } return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), ringMat); };
+    scene.add(circle(3.6), circle(4.4));
+    const scan = circle(1); scan.material = new THREE.LineBasicMaterial({ color: 0xff3b3b, transparent: true, opacity: 0.8 }); scene.add(scan);
+
+    // Drifting data particles
+    const N = 260, pos = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) { pos[i * 3] = (Math.random() - .5) * 16; pos[i * 3 + 1] = Math.random() * 4; pos[i * 3 + 2] = (Math.random() - .5) * 16; }
+    const pg = new THREE.BufferGeometry(); pg.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(pg, new THREE.PointsMaterial({ color: 0xff4040, size: 0.035, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }));
+    scene.add(pts);
+
+    const anchors = {
+      rearWing: new THREE.Vector3(0.6, 1.05, 2.55), frontWheel: new THREE.Vector3(-0.95, 0.5, -1.6), sidepod: new THREE.Vector3(0.95, 0.45, 0.25),
+      cockpit: new THREE.Vector3(0, 0.75, -0.45), nose: new THREE.Vector3(0.2, 0.25, -2.6), rearWheel: new THREE.Vector3(0.95, 0.55, 1.5),
+    };
+    let ang = 0.75, el = 0.32, drag = null, local = { x: 0, y: 0 }, flash = 0;
+    canvas.addEventListener("pointerdown", e => { drag = { x: e.clientX, y: e.clientY, a: ang, e: el }; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener("pointermove", e => {
+      const r = canvas.getBoundingClientRect(); local.x = (e.clientX - r.left) / r.width * 2 - 1; local.y = (e.clientY - r.top) / r.height * 2 - 1;
+      if (drag) { ang = drag.a + (e.clientX - drag.x) * 0.008; el = Math.min(0.9, Math.max(0.05, drag.e + (e.clientY - drag.y) * 0.004)); }
+    });
+    canvas.addEventListener("pointerup", () => { drag = null; });
+    canvas.addEventListener("pointerleave", () => { local.x = local.y = 0; });
+
+    const v = new THREE.Vector3();
+    register({
+      canvas, renderer, scene, camera,
+      update(dt, t) {
+        if (!drag) ang += dt * 0.12 + local.x * dt * 0.9;
+        const elev = drag ? el : el - local.y * 0.12;
+        const D = 8.4 * Math.max(1, 1.25 / camera.aspect);
+        camera.position.set(Math.sin(ang) * D * Math.cos(elev), 0.6 + Math.sin(elev) * D, Math.cos(ang) * D * Math.cos(elev));
+        camera.lookAt(0, 0.35, 0);
+        const s = (t * 0.6) % 1; scan.scale.setScalar(0.5 + s * 4.2); scan.material.opacity = 0.8 * (1 - s);
+        pts.rotation.y += dt * 0.03;
+        flash = Math.max(0, flash - dt * 1.5);
+        lineMat.color.copy(red).lerp(new THREE.Color("#FFF200"), flash);
+        glowMat.opacity = 0.22 + Math.sin(t * 2.4) * 0.06 + flash * 0.4;
+        car.group.position.y = Math.sin(t * 1.4) * 0.03;
+      },
+    });
+    return {
+      setTyre(hex) { bandMat.color.set(hex); },
+      pulse() { flash = 1; },
+      project() {
+        const w = canvas.clientWidth, h = canvas.clientHeight, out = {};
+        car.group.updateMatrixWorld();
+        for (const [k, p] of Object.entries(anchors)) {
+          v.copy(p).applyMatrix4(car.group.matrixWorld).project(camera);
+          out[k] = { x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h, z: v.z };
+        }
+        return out;
+      },
+    };
+  };
 })(typeof window !== "undefined" ? window : globalThis);

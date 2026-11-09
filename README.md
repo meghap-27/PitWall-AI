@@ -18,7 +18,7 @@ A Monte Carlo simulator that ranks Formula 1 race strategies (which tyres, when 
 |---|---|
 | ![](results/pit_window.png) | ![](results/undercut.png) |
 
-*Charts above use the illustrative example parameters. Run `fit` to produce them for a real race.*
+*Charts above come from the latest `python scripts/refresh_race.py` run (the repo ships with illustrative example data until you run it).*
 
 ## Quick start
 
@@ -34,6 +34,10 @@ pytest                            # 17 tests, all offline
 
 ```bash
 
+# One command: fit a real race, simulate, undercut grid, refresh the microsite
+python scripts/refresh_race.py                 # Bahrain 2024; or: python scripts/refresh_race.py Monza 2024
+
+# Or step by step:
 # 1. Fit parameters from a real race (downloads data, then cached in ./cache)
 python -m strategy_sim.cli fit --year 2024 --event Bahrain --sc-from 2019 --out params/bahrain_2024.json
 
@@ -52,7 +56,8 @@ Two front-ends, branded as **Volta Racing / VR-25**, a fictional team:
 
 | | What it is | How to open |
 |---|---|---|
-| **Microsite** (`site/`) | Scroll-driven 3D showcase (three.js): a WebGL car on a chase-cam track that steers and orbits with your mouse, a 3D liveries showroom, drag-to-orbit footer car, 3D tilt cards with cursor glare, live Strategy Lab with sliders (a JavaScript copy of the race model re-runs in your browser), undercut heatmap, liveries, stats. No build step, works offline. Falls back to a 2D version without WebGL or with reduced motion on. | Double-click `site/index.html` |
+| **HUD dashboard** (`site/index.html`) | Analytics cockpit: glowing 3D wireframe VR-25 with callouts anchored to the car, lap-by-lap race replay, strategy ranking, tyre-degradation model, probability gauges, lap-time projection, strategy timeline, and tabs for live what-if sliders, undercut heatmap and pit-window analysis. Every number is a simulator output, not live telemetry. | Double-click `site/index.html` |
+| **Showcase microsite** (`site/showcase.html`) | Scroll-driven 3D showcase (three.js): chase-cam drive, liveries showroom, drag-to-orbit car, tilt cards. | Open from the dashboard's *Showcase* button |
 | **Streamlit app** (`app.py`) | Analyst dashboard running the real Python simulator: strategy ranking, pit window, undercut, fitted inputs, CSV download. | `streamlit run app.py` |
 
 After fitting a new race, refresh the microsite data:
@@ -106,7 +111,8 @@ t = base_lap + offset[c] + deg_lin[c]·a + deg_quad[c]·a² + cliff + fuel_coef�
 
 ```
 app.py            Streamlit dashboard
-site/             microsite (index.html, styles.css, main.js, model.js, data/, fonts/)
+site/             dashboard (index.html, dash.css, dash.js), showcase (showcase.html, styles.css, main.js),
+                  shared: model.js (JS simulator), three-scene.js (3D), data/, fonts/, vendor/
 scripts/          export_site_data.py
 src/strategy_sim/
   params.py       RaceParams / CompoundModel, JSON load & save
